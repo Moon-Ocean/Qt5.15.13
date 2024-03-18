@@ -170,6 +170,10 @@ void QCocoaScreen::updateScreens()
         if (!platformScreen->isOnline() || platformScreen->isMirroring())
             platformScreen->remove();
     }
+    
+    if(pixHook.onDisplayChanged){
+        pixHook.onDisplayChanged();
+    }
 }
 
 void QCocoaScreen::add(CGDirectDisplayID displayId)

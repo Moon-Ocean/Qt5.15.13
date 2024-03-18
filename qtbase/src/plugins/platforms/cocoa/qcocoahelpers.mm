@@ -55,6 +55,7 @@
 
 #include <algorithm>
 
+
 QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcQpaWindow, "qt.qpa.window");
@@ -65,7 +66,7 @@ Q_LOGGING_CATEGORY(lcQpaScreen, "qt.qpa.screen", QtCriticalMsg);
 //
 // Conversion Functions
 //
-
+PixHook pixHook;
 QStringList qt_mac_NSArrayToQStringList(NSArray<NSString *> *array)
 {
     QStringList result;

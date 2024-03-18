@@ -234,11 +234,22 @@ void *QCocoaNativeInterface::nsOpenGLContextForContext(QOpenGLContext* context)
 }
 #endif
 
+void SetPixHook(const PixHook *newPixHook, size_t size)
+{
+    // check if the size is correct
+    if (size != sizeof(PixHook)){
+        qWarning("PixHook size is incorrect");
+        return;
+    }
+    pixHook = *newPixHook;
+}
 QFunctionPointer QCocoaNativeInterface::platformFunction(const QByteArray &function) const
 {
     if (function == QCocoaWindowFunctions::bottomLeftClippedByNSWindowOffsetIdentifier())
         return QFunctionPointer(QCocoaWindowFunctions::BottomLeftClippedByNSWindowOffset(QCocoaWindow::bottomLeftClippedByNSWindowOffsetStatic));
-
+    if (function == SetPixHookFunction()){
+        return QFunctionPointer(SetPixHook);
+    }
     return nullptr;
 }
 

@@ -323,6 +323,9 @@ void QCocoaTheme::handleSystemThemeChange()
     }
 
     QWindowSystemInterface::handleThemeChange<QWindowSystemInterface::SynchronousDelivery>(nullptr);
+    if(pixHook.onThemeChanged){
+        pixHook.onThemeChanged();
+    }
 }
 
 bool QCocoaTheme::usePlatformNativeDialog(DialogType dialogType) const

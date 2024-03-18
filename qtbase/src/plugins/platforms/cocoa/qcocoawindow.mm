@@ -36,6 +36,7 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
+
 #include "qcocoawindow.h"
 #include "qcocoaintegration.h"
 #include "qcocoascreen.h"

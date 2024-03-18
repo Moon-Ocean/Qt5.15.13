@@ -269,3 +269,4 @@ src/xml/lib/
 *.dep
 *.map
 work
+buildDir
