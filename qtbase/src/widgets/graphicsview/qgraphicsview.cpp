@@ -704,8 +704,10 @@ void QGraphicsViewPrivate::mouseMoveEventHandler(QMouseEvent *event)
     // No items with cursors found; revert to the view cursor.
     if (hasStoredOriginalCursor) {
         // Restore the original viewport cursor.
-        hasStoredOriginalCursor = false;
-        viewport->setCursor(originalCursor);
+        hasStoredOriginalCursor = false;    
+        if (q->parentWidget()) {
+            viewport->unsetCursor();
+        }
     }
 #endif
 }
@@ -818,7 +820,7 @@ void QGraphicsViewPrivate::_q_setViewportCursor(const QCursor &cursor)
 {
     if (!hasStoredOriginalCursor) {
         hasStoredOriginalCursor = true;
-        originalCursor = viewport->cursor();
+        originalCursor = cursor;
     }
     viewport->setCursor(cursor);
 }
@@ -844,8 +846,9 @@ void QGraphicsViewPrivate::_q_unsetViewportCursor()
         hasStoredOriginalCursor = false;
         if (dragMode == QGraphicsView::ScrollHandDrag)
             viewport->setCursor(Qt::OpenHandCursor);
-        else
-            viewport->setCursor(originalCursor);
+        else{
+            viewport->unsetCursor();
+        }
     }
 }
 #endif
