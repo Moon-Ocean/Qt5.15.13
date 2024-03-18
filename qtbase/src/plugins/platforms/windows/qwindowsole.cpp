@@ -100,7 +100,9 @@ STDMETHODIMP
 QWindowsOleDataObject::GetData(LPFORMATETC pformatetc, LPSTGMEDIUM pmedium)
 {
     HRESULT hr = ResultFromScode(DATA_E_FORMATETC);
-
+    if(pformatetc->cfFormat > CF_MAX){
+        return hr;
+    }
     if (data) {
         const QWindowsMimeConverter &mc = QWindowsContext::instance()->mimeConverter();
         if (QWindowsMime *converter = mc.converterFromMime(*pformatetc, data))
@@ -124,7 +126,9 @@ STDMETHODIMP
 QWindowsOleDataObject::QueryGetData(LPFORMATETC pformatetc)
 {
     HRESULT hr = ResultFromScode(DATA_E_FORMATETC);
-
+    if(pformatetc->cfFormat > CF_MAX){
+        return hr;
+    }
     if (QWindowsContext::verbose > 1)
         qCDebug(lcQpaMime) << __FUNCTION__;
 
