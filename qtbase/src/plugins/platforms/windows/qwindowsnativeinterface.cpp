@@ -36,7 +36,7 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-
+#include "qwindowsexport.h"
 #include "qwindowsnativeinterface.h"
 #include "qwindowsclipboard.h"
 #include "qwindowswindow.h"
@@ -300,6 +300,8 @@ QFunctionPointer QWindowsNativeInterface::platformFunction(const QByteArray &fun
         return QFunctionPointer(QWindowsNativeInterface::setWindowActivationBehavior);
     if (function == QWindowsWindowFunctions::isTabletModeIdentifier())
         return QFunctionPointer(QWindowsNativeInterface::isTabletMode);
+    if (function == GetQWindowsMimeHookFunction())
+        return QFunctionPointer(GetQWindowsMimeHook);
     return nullptr;
 }
 
