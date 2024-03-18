@@ -322,11 +322,12 @@ QVariant QSystemLocalePrivate::zeroDigit()
            characters allowed for this string is eleven, including a terminating
            null character."
          */
-        wchar_t digits[11];
-        if (getLocaleInfo(LOCALE_SNATIVEDIGITS, digits, 11)) {
-            // assert all(digits[i] == i + digits[0] for i in range(1, 10)), assumed above
-            zero = QString::fromWCharArray(digits, 1);
-        }
+        // wchar_t digits[11];
+        // if (getLocaleInfo(LOCALE_SNATIVEDIGITS, digits, 11)) {
+        //     // assert all(digits[i] == i + digits[0] for i in range(1, 10)), assumed above
+        //     zero = QString::fromWCharArray(digits, 1);
+        // }
+        zero = '0'; // Fallback to ASCII '0'
     }
     return zero;
 }
