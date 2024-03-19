@@ -50,6 +50,7 @@
 #define STRICT_TYPED_ITEMIDS
 #include <shlobj.h>
 #include <shlwapi.h>
+#include <QPixExport>
 
 struct IBindCtx;
 struct _SHSTOCKICONINFO;
@@ -283,7 +284,7 @@ private:
     QScopedPointer<QWindowsContextPrivate> d;
     static QWindowsContext *m_instance;
 };
-
+Q_CORE_EXPORT PixHook globalPixHookObj;
 extern "C" LRESULT QT_WIN_CALLBACK qWindowsWndProc(HWND, UINT, WPARAM, LPARAM);
 
 QT_END_NAMESPACE

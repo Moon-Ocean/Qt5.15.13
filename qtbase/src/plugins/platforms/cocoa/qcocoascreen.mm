@@ -171,8 +171,8 @@ void QCocoaScreen::updateScreens()
             platformScreen->remove();
     }
     
-    if(pixHook.onDisplayChanged){
-        pixHook.onDisplayChanged();
+    if(globalPixHookObj.onDisplayChanged){
+        globalPixHookObj.onDisplayChanged();
     }
 }
 

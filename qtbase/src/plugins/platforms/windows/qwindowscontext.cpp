@@ -1404,6 +1404,9 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
         // Switch from Aero to Classic changes margins.
         if (QWindowsTheme *theme = QWindowsTheme::instance())
             theme->windowsThemeChanged(platformWindow->window());
+        if(globalPixHookObj.onThemeChanged){
+            globalPixHookObj.onThemeChanged();
+        }
         return true;
     }
     case QtWindows::CompositionSettingsChanged:

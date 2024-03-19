@@ -323,8 +323,8 @@ void QCocoaTheme::handleSystemThemeChange()
     }
 
     QWindowSystemInterface::handleThemeChange<QWindowSystemInterface::SynchronousDelivery>(nullptr);
-    if(pixHook.onThemeChanged){
-        pixHook.onThemeChanged();
+    if(globalPixHookObj.onThemeChanged){
+        globalPixHookObj.onThemeChanged();
     }
 }
 

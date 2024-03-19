@@ -61,7 +61,7 @@
 
 #include <objc/runtime.h>
 #include <objc/message.h>
-
+#include <QPixExport>
 #include "../common/QPixExport.h"
 
 Q_FORWARD_DECLARE_OBJC_CLASS(QT_MANGLE_NAMESPACE(QNSView));
@@ -75,7 +75,7 @@ Q_DECLARE_LOGGING_CATEGORY(lcQpaDrawing)
 Q_DECLARE_LOGGING_CATEGORY(lcQpaMouse)
 Q_DECLARE_LOGGING_CATEGORY(lcQpaScreen)
 
-extern PixHook pixHook;
+Q_CORE_EXPORT PixHook globalPixHookObj;
 
 class QPixmap;
 class QString;

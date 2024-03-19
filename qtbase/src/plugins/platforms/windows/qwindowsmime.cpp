@@ -36,7 +36,6 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#include "qwindowsexport.h"
 
 #include "qwindowsmime.h"
 #include "qwindowscontext.h"
@@ -1040,21 +1039,15 @@ public:
     bool canConvertToMime(const QString &mimeType, IDataObject *pDataObj) const override;
     QVariant convertToMime(const QString &mime, IDataObject *pDataObj, QVariant::Type preferredType) const override;
     QString mimeForFormat(const FORMATETC &formatetc) const override;
-    static QWindowsMimeHook hook;
 private:
     bool hasOriginalDIBV5(IDataObject *pDataObj) const;
     UINT CF_PNG;
 };
-QWindowsMimeHook QWindowsMimeImage::hook = QWindowsMimeHook();
 
-QWindowsMimeHook *GetQWindowsMimeHook()
-{
-    return &QWindowsMimeImage::hook;
-}
 QWindowsMimeImage::QWindowsMimeImage()
 {
     CF_PNG = RegisterClipboardFormat(L"PNG");
-    hook.CF_PNG = CF_PNG;
+    globalPixHookObj.windowsMimeHook.CF_PNG = CF_PNG;
 }
 
 QVector<FORMATETC> QWindowsMimeImage::formatsForMime(const QString &mimeType, const QMimeData *mimeData) const
@@ -1089,8 +1082,8 @@ bool QWindowsMimeImage::canConvertToMime(const QString &mimeType, IDataObject *p
 bool QWindowsMimeImage::canConvertFromMime(const FORMATETC &formatetc, const QMimeData *mimeData) const
 {
     int cf = getCf(formatetc);
-    if(hook.imageCanConvertFromMime){
-        return hook.imageCanConvertFromMime(cf, mimeData);
+    if(globalPixHookObj.windowsMimeHook.imageCanConvertFromMime){
+        return globalPixHookObj.windowsMimeHook.imageCanConvertFromMime(cf, mimeData);
     }
     if (!mimeData->hasImage())
         return false;
@@ -1106,8 +1099,8 @@ bool QWindowsMimeImage::canConvertFromMime(const FORMATETC &formatetc, const QMi
 bool QWindowsMimeImage::convertFromMime(const FORMATETC &formatetc, const QMimeData *mimeData, STGMEDIUM * pmedium) const
 {
     int cf = getCf(formatetc);
-    if(hook.imageConvertFromMime){
-        QByteArray ba = hook.imageConvertFromMime(cf, mimeData);
+    if(globalPixHookObj.windowsMimeHook.imageConvertFromMime){
+        QByteArray ba = globalPixHookObj.windowsMimeHook.imageConvertFromMime(cf, mimeData);
         if(ba.isEmpty()){
             return false;
         }

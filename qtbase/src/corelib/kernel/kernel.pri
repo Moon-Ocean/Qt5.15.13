@@ -43,7 +43,8 @@ HEADERS += \
         kernel/qsystemerror_p.h \
         kernel/qmetatype_p.h \
         kernel/qmetatypeswitcher_p.h \
-        kernel/qtestsupport_core.h
+        kernel/qtestsupport_core.h \
+        kernel/qpixexport.h
 
 SOURCES += \
         kernel/qabstracteventdispatcher.cpp \

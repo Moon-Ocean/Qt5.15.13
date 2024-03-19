@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "functional": "cpp",
+        "qpixexport.h": "c",
+        "qglobal.h": "c",
+        "qpixexport": "cpp"
+    }
+}

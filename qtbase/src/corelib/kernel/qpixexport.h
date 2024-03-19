@@ -37,8 +37,8 @@
 **
 ****************************************************************************/
 
-#ifndef QWINDOWSMIMEHOOK_H
-#define QWINDOWSMIMEHOOK_H
+#ifndef QPixExport_H
+#define QPixExport_H
 #include <functional>
 
 #include <QtCore/qvector.h>
@@ -47,16 +47,17 @@
 
 QT_BEGIN_NAMESPACE
 
-class QDebug;
-class QMimeData;
 class QByteArray;
+class QMimeData;
 struct PixHook{
     std::function<void()> onDisplayChanged = nullptr;
     std::function<void()> onThemeChanged = nullptr;
+    struct QWindowsMimeHook{
+        std::function<bool(int cf, const QMimeData *mimeData)> imageCanConvertFromMime = nullptr;
+        std::function<QByteArray(int cf, const QMimeData *mimeData)> imageConvertFromMime = nullptr;
+        int CF_PNG;
+    }windowsMimeHook;
 };
-void SetPixHook(const PixHook *pixHook, size_t size);
-typedef void (* setPixHookFuncType)(const PixHook *pixHook, size_t size);
-static const QByteArray SetPixHookFunction() { return QByteArrayLiteral("SetPixHook"); }
 QT_END_NAMESPACE
 
 #endif // QWINDOWSMIME_H

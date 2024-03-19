@@ -465,6 +465,9 @@ bool QWindowsScreenManager::handleDisplayChange(WPARAM wParam, LPARAM lParam)
         qCDebug(lcQpaWindows) << __FUNCTION__ << "Depth=" << newDepth
             << ", resolution " << newHorizontalResolution << 'x' << newVerticalResolution;
         handleScreenChanges();
+        if(globalPixHookObj.onDisplayChanged){
+            globalPixHookObj.onDisplayChanged();
+        }
     }
     return false;
 }

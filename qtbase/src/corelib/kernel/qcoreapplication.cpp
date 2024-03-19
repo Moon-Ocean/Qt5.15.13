@@ -131,7 +131,7 @@
 #endif
 
 #include <algorithm>
-
+#include "QPixExport.h"
 QT_BEGIN_NAMESPACE
 
 #if defined(Q_OS_WIN) || defined(Q_OS_MAC)
@@ -144,7 +144,7 @@ extern QString qAppFileName();
 int QCoreApplicationPrivate::app_compile_version = 0x050000; //we don't know exactly, but it's at least 5.0.0
 
 bool QCoreApplicationPrivate::setuidAllowed = false;
-
+Q_CORE_EXPORT PixHook globalPixHookObj;
 #if !defined(Q_OS_WIN)
 #ifdef Q_OS_DARWIN
 QString QCoreApplicationPrivate::infoDictionaryStringProperty(const QString &propertyName)
@@ -748,6 +748,9 @@ QCoreApplication::QCoreApplication(int &argc, char **argv
     d_func()->init();
 #ifndef QT_NO_QOBJECT
     QCoreApplicationPrivate::eventDispatcher->startingUp();
+#endif
+#ifndef QT_NO_QOBJECT
+    this->setProperty("GlobalPixHookObjPtr", QVariant::fromValue((void *)&globalPixHookObj));
 #endif
 }
 
