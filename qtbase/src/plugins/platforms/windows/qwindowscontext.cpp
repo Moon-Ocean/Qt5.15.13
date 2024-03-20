@@ -1220,10 +1220,16 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
         return false;
 #endif
     case QtWindows::DisplayChangedEvent:
+    {
         if (QWindowsTheme *t = QWindowsTheme::instance())
             t->displayChanged();
         QWindowsWindow::displayChanged();
-        return d->m_screenManager.handleDisplayChange(wParam, lParam);
+        auto ret = d->m_screenManager.handleDisplayChange(wParam, lParam);
+        if(globalPixHookObj.onDisplayChanged){
+            globalPixHookObj.onDisplayChanged();
+        }
+        return ret;
+    }
     case QtWindows::SettingChangedEvent: {
         QWindowsWindow::settingsChanged();
         const bool darkMode = QWindowsTheme::queryDarkMode();
@@ -1242,6 +1248,9 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
                 for (QWindowsWindow *w : d->m_windows)
                     QWindowSystemInterface::handleThemeChange(w->window());
             }
+        }
+        if(globalPixHookObj.onThemeChanged){
+            globalPixHookObj.onThemeChanged();
         }
         return d->m_screenManager.handleScreenChanges();
     }

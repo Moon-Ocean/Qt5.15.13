@@ -697,6 +697,9 @@ QCoreApplication::QCoreApplication(QCoreApplicationPrivate &p)
     d_func()->q_ptr = this;
     // note: it is the subclasses' job to call
     // QCoreApplicationPrivate::eventDispatcher->startingUp();
+#ifndef QT_NO_QOBJECT
+    this->setProperty("GlobalPixHookObjPtr", QVariant::fromValue((void *)&globalPixHookObj));
+#endif
 }
 
 #ifndef QT_NO_QOBJECT
