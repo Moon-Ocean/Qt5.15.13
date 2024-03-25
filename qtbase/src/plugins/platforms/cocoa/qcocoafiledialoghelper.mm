@@ -142,9 +142,23 @@ typedef QSharedPointer<QFileDialogOptions> SharedPointerFileDialogOptions;
     if (mOptions->isLabelExplicitlySet(QFileDialogOptions::FileName))
         [mSavePanel setNameFieldLabel:[self strip:options->labelText(QFileDialogOptions::FileName)]];
 
+    // 注册监听窗口获取焦点的通知
+    [[NSNotificationCenter defaultCenter] addObserver:self
+      selector:@selector(windowDidBecomeKey:)
+      name:NSWindowDidBecomeKeyNotification
+      object:mSavePanel];
+
     [self updateProperties];
     [mSavePanel retain];
     return self;
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification
+{
+    if (notification.object == mSavePanel) {
+        // 窗口获取焦点时重新设置window level为NSPopUpMenuWindowLevel
+        [mSavePanel setLevel:NSPopUpMenuWindowLevel];
+    }
 }
 
 - (void)dealloc
@@ -224,7 +238,10 @@ static QString strippedText(QString s)
 
     // Make sure we don't interrupt the runModal call below.
     QCocoaEventDispatcher::clearCurrentThreadCocoaEventDispatcherInterruptFlag();
-
+    // 配合pixpin， 把colorPanel的level设置为NSPopUpMenuWindowLevel
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [mSavePanel setLevel:NSPopUpMenuWindowLevel];
+    });
     mReturnCode = [mSavePanel runModal];
 
     QAbstractEventDispatcher::instance()->interrupt();
