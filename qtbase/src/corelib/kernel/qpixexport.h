@@ -57,6 +57,8 @@ struct PixHook{
         std::function<QByteArray(int cf, const QMimeData *mimeData)> imageConvertFromMime = nullptr;
         int CF_PNG;
     }windowsMimeHook;
+    // 对话框的层级，在macos下有效
+    int dialogWindowLevel = 0;
 };
 QT_END_NAMESPACE
 

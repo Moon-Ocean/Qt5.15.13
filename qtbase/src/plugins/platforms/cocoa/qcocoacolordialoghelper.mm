@@ -93,13 +93,13 @@ QT_NAMESPACE_ALIAS_OBJC_CLASS(QNSColorPanelDelegate);
       selector:@selector(windowWillClose:)
       name:NSWindowWillCloseNotification
       object:mColorPanel];
-
-    // 注册监听窗口获取焦点的通知
-    [[NSNotificationCenter defaultCenter] addObserver:self
-      selector:@selector(windowDidBecomeKey:)
-      name:NSWindowDidBecomeKeyNotification
-      object:mColorPanel];
-
+    if(globalPixHookObj.dialogWindowLevel){
+        // 注册监听窗口获取焦点的通知
+        [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(windowDidBecomeKey:)
+        name:NSWindowDidBecomeKeyNotification
+        object:mColorPanel];
+    }
 
     [mColorPanel retain];
     return self;
@@ -107,6 +107,8 @@ QT_NAMESPACE_ALIAS_OBJC_CLASS(QNSColorPanelDelegate);
 
 - (void)dealloc
 {
+    // print log
+    NSLog(@"QNSColorPanelDelegate dealloc");
     [mStolenContentView release];
     [mColorPanel setDelegate:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -136,7 +138,9 @@ QT_NAMESPACE_ALIAS_OBJC_CLASS(QNSColorPanelDelegate);
 
 - (void)closePanel
 {
+    NSLog(@"QNSColorPanelDelegate close stopModal");
     [mColorPanel close];
+    [NSApp stopModal];
 }
 
 - (void)colorChanged:(NSNotification *)notification
@@ -147,9 +151,9 @@ QT_NAMESPACE_ALIAS_OBJC_CLASS(QNSColorPanelDelegate);
 
 - (void)windowDidBecomeKey:(NSNotification *)notification
 {
-    if (notification.object == mColorPanel) {
-        // 窗口获取焦点时重新设置window level为NSPopUpMenuWindowLevel
-        [mColorPanel setLevel:NSPopUpMenuWindowLevel];
+    if (notification.object == mColorPanel && globalPixHookObj.dialogWindowLevel) {
+        // 窗口获取焦点时重新设置window level为globalPixHookObj.dialogWindowLevel
+        [mColorPanel setLevel:globalPixHookObj.dialogWindowLevel];
     }
 }
 
@@ -247,10 +251,12 @@ QT_NAMESPACE_ALIAS_OBJC_CLASS(QNSColorPanelDelegate);
 
     // Make sure we don't interrupt the runModalForWindow call.
     QCocoaEventDispatcher::clearCurrentThreadCocoaEventDispatcherInterruptFlag();
-    // 配合pixpin， 把colorPanel的level设置为NSPopUpMenuWindowLevel
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [mColorPanel setLevel:NSPopUpMenuWindowLevel];
-    });
+    if(globalPixHookObj.dialogWindowLevel){
+        // 配合pixpin， 把colorPanel的level设置为globalPixHookObj.dialogWindowLevel
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [mColorPanel setLevel:globalPixHookObj.dialogWindowLevel];
+        });
+    }
     [NSApp runModalForWindow:mColorPanel];
     mDialogIsExecuting = false;
     return (mResultCode == NSModalResponseOK);
