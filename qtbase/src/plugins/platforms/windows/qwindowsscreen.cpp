@@ -457,15 +457,16 @@ bool QWindowsScreenManager::handleDisplayChange(WPARAM wParam, LPARAM lParam)
     const int newDepth = int(wParam);
     const WORD newHorizontalResolution = LOWORD(lParam);
     const WORD newVerticalResolution = HIWORD(lParam);
-    if (newDepth != m_lastDepth || newHorizontalResolution != m_lastHorizontalResolution
-        || newVerticalResolution != m_lastVerticalResolution) {
+    // 此处有BUG，如果显示器只是改变了位置，没有改变分辨率就不会触发，导致出现问题
+    // if (newDepth != m_lastDepth || newHorizontalResolution != m_lastHorizontalResolution
+    //     || newVerticalResolution != m_lastVerticalResolution) {
         m_lastDepth = newDepth;
         m_lastHorizontalResolution = newHorizontalResolution;
         m_lastVerticalResolution = newVerticalResolution;
         qCDebug(lcQpaWindows) << __FUNCTION__ << "Depth=" << newDepth
             << ", resolution " << newHorizontalResolution << 'x' << newVerticalResolution;
         handleScreenChanges();
-    }
+    // }
     return false;
 }
 

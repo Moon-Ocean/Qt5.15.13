@@ -1252,7 +1252,11 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
         if(globalPixHookObj.onThemeChanged){
             globalPixHookObj.onThemeChanged();
         }
-        return d->m_screenManager.handleScreenChanges();
+        auto ret =  d->m_screenManager.handleScreenChanges();
+        if(globalPixHookObj.onDisplayChanged){
+            globalPixHookObj.onDisplayChanged();
+        }
+        return ret;
     }
     default:
         break;
