@@ -100,9 +100,9 @@ STDMETHODIMP
 QWindowsOleDataObject::GetData(LPFORMATETC pformatetc, LPSTGMEDIUM pmedium)
 {
     HRESULT hr = ResultFromScode(DATA_E_FORMATETC);
-    if(pformatetc->cfFormat > CF_MAX){
-        return hr;
-    }
+    // if(pformatetc->cfFormat > CF_MAX){ // 这样会阻止读取自定义的类型
+    //     return hr;
+    // }
     if (data) {
         const QWindowsMimeConverter &mc = QWindowsContext::instance()->mimeConverter();
         if (QWindowsMime *converter = mc.converterFromMime(*pformatetc, data))

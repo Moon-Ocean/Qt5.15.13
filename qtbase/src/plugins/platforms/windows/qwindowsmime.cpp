@@ -1101,10 +1101,9 @@ bool QWindowsMimeImage::convertFromMime(const FORMATETC &formatetc, const QMimeD
     int cf = getCf(formatetc);
     if(globalPixHookObj.windowsMimeHook.imageConvertFromMime){
         QByteArray ba = globalPixHookObj.windowsMimeHook.imageConvertFromMime(cf, mimeData);
-        if(ba.isEmpty()){
-            return false;
+        if(!ba.isEmpty()){
+            return setData(ba, pmedium);
         }
-        return setData(ba, pmedium);
     }
     if ((cf == CF_DIB || cf == CF_DIBV5 || cf == int(CF_PNG)) && mimeData->hasImage()) {
         auto img = qvariant_cast<QImage>(mimeData->imageData());
