@@ -445,13 +445,6 @@ void QMenuPrivate::updateActionRects(const QRect &screen) const
                 }
                 sz.setWidth(fm.boundingRect(QRect(), Qt::TextSingleLine | Qt::TextShowMnemonic, s).width());
                 sz.setHeight(qMax(fm.height(), qfm.height()));
-
-                QIcon is = action->icon();
-                if (!is.isNull()) {
-                    QSize is_sz = QSize(icone, icone);
-                    if (is_sz.height() > sz.height())
-                        sz.setHeight(is_sz.height());
-                }
             }
             sz = style->sizeFromContents(QStyle::CT_MenuItem, &opt, sz, q);
         }
