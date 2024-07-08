@@ -386,7 +386,8 @@ void QMenuPrivate::updateActionRects(const QRect &screen) const
     //for compatibility now - will have to refactor this away
     tabWidth = 0;
     maxIconWidth = 0;
-    hasCheckableItems = false;
+    // 无论是否可选都保留一个空间，以便在视觉上保持一致
+    hasCheckableItems = true;
     ncols = 1;
 
     for (int i = 0; i < actions.count(); ++i) {
