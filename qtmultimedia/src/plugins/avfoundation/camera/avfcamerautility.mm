@@ -101,7 +101,7 @@ struct ByResolution
     }
 };
 
-struct FormatHasNoFPSRange : std::unary_function<AVCaptureDeviceFormat *, bool>
+struct FormatHasNoFPSRange : std::__unary_function<AVCaptureDeviceFormat *, bool>
 {
     bool operator() (AVCaptureDeviceFormat *format)
     {
