@@ -384,6 +384,13 @@ NSMenuItem *QCocoaMenuItem::sync()
 
     m_native.title = QPlatformTheme::removeMnemonics(text).toNSString();
 
+    if (m_text.contains('\t'))
+    {
+        if (@available(macOS 14, *)) {
+            NSString *badgeText = QPlatformTheme::removeMnemonics(m_text.mid(m_text.indexOf('\t') + 1)).toNSString();
+            m_native.badge = [[NSMenuItemBadge alloc] initWithString:badgeText];
+        }
+    } else
 #ifndef QT_NO_SHORTCUT
     if (accel.count() == 1) {
         m_native.keyEquivalent = keySequenceToKeyEqivalent(accel);
