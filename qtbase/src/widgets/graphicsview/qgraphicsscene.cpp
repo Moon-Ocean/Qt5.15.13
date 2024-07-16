@@ -796,16 +796,18 @@ void QGraphicsScenePrivate::setActivePanelHelper(QGraphicsItem *item, bool durin
             setFocusItemHelper(focusItem, Qt::ActiveWindowFocusReason, /* emitFocusChanged = */ false);
         } else if (panel->flags() & QGraphicsItem::ItemIsFocusable) {
             setFocusItemHelper(panel, Qt::ActiveWindowFocusReason, /* emitFocusChanged = */ false);
-        } else if (panel->isWidget()) {
-            QGraphicsWidget *fw = static_cast<QGraphicsWidget *>(panel)->d_func()->focusNext;
-            do {
-                if (fw->focusPolicy() & Qt::TabFocus) {
-                    setFocusItemHelper(fw, Qt::ActiveWindowFocusReason, /* emitFocusChanged = */ false);
-                    break;
-                }
-                fw = fw->d_func()->focusNext;
-            } while (fw != panel);
-        }
+        } 
+        // // 禁止切换QGraphicsWidget焦点，用于PixPin的标注，不会抢占焦点导致标注失效
+        // else if (panel->isWidget()) {
+        //     QGraphicsWidget *fw = static_cast<QGraphicsWidget *>(panel)->d_func()->focusNext;
+        //     do {
+        //         if (fw->focusPolicy() & Qt::TabFocus) {
+        //             setFocusItemHelper(fw, Qt::ActiveWindowFocusReason, /* emitFocusChanged = */ false);
+        //             break;
+        //         }
+        //         fw = fw->d_func()->focusNext;
+        //     } while (fw != panel);
+        // }
     } else if (q->isActive()) {
         const auto items = q->items();
         // Activate the scene
@@ -902,12 +904,6 @@ void QGraphicsScenePrivate::addPopup(QGraphicsWidget *widget)
     popupWidgets << widget;
     if (QGraphicsWidget *focusWidget = widget->focusWidget()) {
         focusWidget->setFocus(Qt::PopupFocusReason);
-    } else {
-        grabKeyboard((QGraphicsItem *)widget);
-        if (focusItem && popupWidgets.size() == 1) {
-            QFocusEvent event(QEvent::FocusOut, Qt::PopupFocusReason);
-            sendEvent(focusItem, &event);
-        }
     }
     grabMouse((QGraphicsItem *)widget);
 }

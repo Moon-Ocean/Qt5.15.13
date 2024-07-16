@@ -482,6 +482,7 @@ void QGraphicsProxyWidgetPrivate::embedSubWindow(QWidget *subWin)
     const auto &extra = subWin->d_func()->extra;
     if (!extra || !extra->proxyWidget) {
         QGraphicsProxyWidget *subProxy = new QGraphicsProxyWidget(q_func(), subWin->windowFlags());
+        subProxy->setFocusPolicy(subWin->focusPolicy());
         subProxy->d_func()->setWidget_helper(subWin, false);
     }
 }
