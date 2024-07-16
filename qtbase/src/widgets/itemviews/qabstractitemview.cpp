@@ -3750,7 +3750,15 @@ void QAbstractItemView::startDrag(Qt::DropActions supportedActions)
         QPixmap pixmap = d->renderToPixmap(indexes, &rect);
         rect.adjust(horizontalOffset(), verticalOffset(), 0, 0);
         QDrag *drag = new QDrag(this);
-        drag->setPixmap(pixmap);
+        // 把拖动图像设置为半透明
+        QPixmap newPixmap(pixmap.width(), pixmap.height());
+        newPixmap.fill(Qt::transparent);
+        QPainter painter(&newPixmap);
+        painter.setOpacity(0.8f);
+        painter.drawPixmap(0, 0, pixmap);
+        painter.end();
+
+        drag->setPixmap(newPixmap);
         drag->setMimeData(data);
         drag->setHotSpot(d->pressedPosition - rect.topLeft());
         Qt::DropAction defaultDropAction = Qt::IgnoreAction;
