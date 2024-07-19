@@ -12248,11 +12248,12 @@ static MapToGlobalTransformResult mapToGlobalTransform(const QWidget *w)
             }
         }
 #endif // QT_CONFIG(graphicsview)
-        QWindow *window = w->windowHandle();
-        if (window && canMapPosition(window)) {
-            result.window = window;
-            break;
-        }
+        // 当widget在graphicscene中的时候会算出错误的位置，所以这里屏蔽这段
+        // QWindow *window = w->windowHandle();
+        // if (window && canMapPosition(window)) {
+        //     result.window = window;
+        //     break;
+        // }
 
         const QPoint topLeft = w->geometry().topLeft();
         result.transform.translate(topLeft.x(), topLeft.y());
