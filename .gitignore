@@ -270,3 +270,4 @@ src/xml/lib/
 *.map
 work
 buildDir
+buildDir_del

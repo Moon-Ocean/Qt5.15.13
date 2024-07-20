@@ -1105,7 +1105,7 @@ QList<QGlyphRun> QTextLayout::glyphRuns(int from, int length) const
     The rendered layout includes the given \a selections and is clipped within
     the rectangle specified by \a clip.
 */
-void QTextLayout::draw(QPainter *p, const QPointF &pos, const QVector<FormatRange> &selections, const QRectF &clip) const
+void QTextLayout::draw(QPainter *p, const QPointF &pos, const QVector<FormatRange> &selections, const QRectF &clip, QPainterPath *dumpToPath) const
 {
     if (d->lines.isEmpty())
         return;
@@ -1270,7 +1270,7 @@ void QTextLayout::draw(QPainter *p, const QPointF &pos, const QVector<FormatRang
 
     for (int i = firstLine; i < lastLine; ++i) {
         QTextLine l(i, d);
-        l.draw(p, position);
+        l.draw(p, position, nullptr, dumpToPath);
     }
     if (!excludedRegion.isEmpty())
         p->restore();
@@ -2535,7 +2535,7 @@ QList<QGlyphRun> QTextLine::glyphRuns(int from, int length) const
     Draws a line on the given \a painter at the specified \a position.
     The \a selection is reserved for internal use.
 */
-void QTextLine::draw(QPainter *p, const QPointF &pos, const QTextLayout::FormatRange *selection) const
+void QTextLine::draw(QPainter *p, const QPointF &pos, const QTextLayout::FormatRange *selection, QPainterPath *dumpToPath) const
 {
 #ifndef QT_NO_RAWFONT
     // Not intended to work with rawfont
@@ -2688,6 +2688,10 @@ void QTextLine::draw(QPainter *p, const QPointF &pos, const QTextLayout::FormatR
         Q_ASSERT(gf.fontEngine);
 
         QPointF pos(iterator.x.toReal(), itemBaseLine.toReal());
+        if(dumpToPath){
+            if (gf.glyphs.numGlyphs)
+                gf.fontEngine->addOutlineToPath(pos.x(), pos.y(), gf.glyphs, dumpToPath, gf.flags);
+        }
         if (format.penProperty(QTextFormat::TextOutline).style() != Qt::NoPen) {
             QPainterPath path;
             path.setFillRule(Qt::WindingFill);

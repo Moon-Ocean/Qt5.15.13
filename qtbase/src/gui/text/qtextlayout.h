@@ -186,7 +186,7 @@ public:
     int rightCursorPosition(int oldPos) const;
 
     void draw(QPainter *p, const QPointF &pos, const QVector<FormatRange> &selections = QVector<FormatRange>(),
-              const QRectF &clip = QRectF()) const;
+              const QRectF &clip = QRectF(), QPainterPath *dumpToPath = nullptr) const;
     void drawCursor(QPainter *p, const QPointF &pos, int cursorPosition) const;
     void drawCursor(QPainter *p, const QPointF &pos, int cursorPosition, int width) const;
 
@@ -267,7 +267,7 @@ public:
 
     int lineNumber() const { return index; }
 
-    void draw(QPainter *p, const QPointF &point, const QTextLayout::FormatRange *selection = nullptr) const;
+    void draw(QPainter *p, const QPointF &point, const QTextLayout::FormatRange *selection = nullptr, QPainterPath *dumpToPath = nullptr) const;
 
 #if !defined(QT_NO_RAWFONT)
     QList<QGlyphRun> glyphRuns(int from = -1, int length = -1) const;
