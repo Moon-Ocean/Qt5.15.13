@@ -1388,8 +1388,11 @@ void QGraphicsScenePrivate::mousePressEventHandler(QGraphicsSceneMouseEvent *mou
                 break;
             }
         }
-        if (item->isPanel())
+        if (item->isPanel()){
+        	// 禁止面板获取焦点，用于文本标注的浮动面板
+            setFocus = true;
             break;
+        }
         if (item->d_ptr->flags & QGraphicsItem::ItemStopsClickFocusPropagation)
             break;
     }
