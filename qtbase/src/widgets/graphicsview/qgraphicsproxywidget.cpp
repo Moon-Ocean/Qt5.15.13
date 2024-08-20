@@ -1017,6 +1017,11 @@ void QGraphicsProxyWidget::showEvent(QShowEvent *event)
 void QGraphicsProxyWidget::hideEvent(QHideEvent *event)
 {
     Q_UNUSED(event);
+    Q_D(QGraphicsProxyWidget);
+    if (d->lastWidgetUnderMouse) {
+        QApplicationPrivate::dispatchEnterLeave(nullptr, d->lastWidgetUnderMouse, QCursor::pos());
+        d->lastWidgetUnderMouse = nullptr;
+    }
 }
 
 #ifndef QT_NO_CONTEXTMENU
