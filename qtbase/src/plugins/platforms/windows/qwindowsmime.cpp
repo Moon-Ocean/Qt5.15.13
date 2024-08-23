@@ -1574,6 +1574,7 @@ QVector<FORMATETC> QWindowsMimeConverter::allFormatsForMime(const QMimeData *mim
     formatics.reserve(20);
     const QStringList formats = QInternalMimeData::formatsHelper(mimeData);
     for (int f = 0; f < formats.size(); ++f) {
+        if(formats.at(f).startsWith(L"image/"))continue; // too many image formats cause wechat paste slow
         for (int i = m_mimes.size() - 1; i >= 0; --i)
             formatics += m_mimes.at(i)->formatsForMime(formats.at(f), mimeData);
     }
