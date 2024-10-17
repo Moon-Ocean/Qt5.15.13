@@ -2884,7 +2884,7 @@ void QComboBox::showPopup()
             if (listRect.bottom() > screen.bottom())
                 listRect.moveBottom(screen.bottom());
         }
-    } else if (!boundToScreen || listRect.height() <= belowHeight) {
+    } else if (listRect.height() <= belowHeight) {
         listRect.moveTopLeft(below);
     } else if (listRect.height() <= aboveHeight) {
         listRect.moveBottomLeft(above);
