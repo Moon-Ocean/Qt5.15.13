@@ -355,6 +355,9 @@ void QGraphicsWidget::setGeometry(const QRectF &rect)
     QGraphicsLayoutItemPrivate *d = QGraphicsLayoutItem::d_ptr.data();
     QRectF newGeom;
     QPointF oldPos = d->geom.topLeft();
+    if (wd->scene) {
+        wd->scene->update(d->geom); // Update old areas to avoid ghosting
+    }
     if (!wd->inSetPos) {
         setAttribute(Qt::WA_Resized);
         newGeom = rect;
