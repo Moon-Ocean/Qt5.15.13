@@ -97,6 +97,7 @@ public:
     static QWindowList allWindows();
     static QWindowList topLevelWindows();
     static QWindow *topLevelAt(const QPoint &pos);
+    static void resetLastCursorPosition();
 
     static void setWindowIcon(const QIcon &icon);
     static QIcon windowIcon();

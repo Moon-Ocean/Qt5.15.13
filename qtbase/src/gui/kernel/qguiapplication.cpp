@@ -1160,6 +1160,14 @@ QWindow *QGuiApplication::topLevelAt(const QPoint &pos)
     }
     return nullptr;
 }
+/*!
+    \internal
+    Resets the last cursor position to an invalid value.
+*/
+void QGuiApplication::resetLastCursorPosition()
+{
+    QGuiApplicationPrivate::lastCursorPosition = {qInf(), qInf()};
+}
 
 /*!
     \property QGuiApplication::platformName
