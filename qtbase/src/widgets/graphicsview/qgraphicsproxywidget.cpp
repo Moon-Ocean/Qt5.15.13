@@ -1137,19 +1137,23 @@ void QGraphicsProxyWidget::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
                 QCoreApplication::sendEvent(d->dragDropWidget, &dragLeave);
             }
             d->dragDropWidget = receiver;
+            break;
         }
 
-        QDragMoveEvent dragMove(receiverPos, event->possibleActions(), event->mimeData(), event->buttons(), event->modifiers());
-        event->setDropAction(d->lastDropAction);
-        QCoreApplication::sendEvent(receiver, &dragMove);
-        event->setAccepted(dragMove.isAccepted());
-        event->setDropAction(dragMove.dropAction());
-        if (event->isAccepted())
-            d->lastDropAction = event->dropAction();
-        eventDelivered = true;
-        break;
     }
-
+    if (d->dragDropWidget) {
+        QPoint receiverPos = d->mapToReceiver(p, d->dragDropWidget).toPoint();
+        if(QRect(0, 0, d->dragDropWidget->width(), d->dragDropWidget->height()).contains(receiverPos)){
+            QDragMoveEvent dragMove(receiverPos, event->possibleActions(), event->mimeData(), event->buttons(), event->modifiers());
+            event->setDropAction(d->lastDropAction);
+            QCoreApplication::sendEvent(d->dragDropWidget, &dragMove);
+            event->setAccepted(true);
+            event->setDropAction(dragMove.dropAction());
+            if (event->isAccepted())
+                d->lastDropAction = event->dropAction();
+            eventDelivered = true;
+        }
+    }
     if (!eventDelivered) {
         if (d->dragDropWidget) {
             // Leave the last drag drop item
