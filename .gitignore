@@ -271,3 +271,4 @@ src/xml/lib/
 work
 buildDir
 buildDir_del
+buildUniversal

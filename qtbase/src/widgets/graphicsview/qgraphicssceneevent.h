@@ -139,6 +139,9 @@ public:
     explicit QGraphicsSceneWheelEvent(Type type = None);
     ~QGraphicsSceneWheelEvent();
 
+    Qt::ScrollPhase phase() const;
+    void setPhase(Qt::ScrollPhase phase);
+
     QPointF pos() const;
     void setPos(const QPointF &pos);
 

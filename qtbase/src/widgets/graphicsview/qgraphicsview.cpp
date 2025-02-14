@@ -3460,6 +3460,7 @@ void QGraphicsView::wheelEvent(QWheelEvent *event)
     event->ignore();
 
     QGraphicsSceneWheelEvent wheelEvent(QEvent::GraphicsSceneWheel);
+    wheelEvent.setPhase(event->phase());
     wheelEvent.setWidget(viewport());
     wheelEvent.setScenePos(mapToScene(event->position().toPoint()));
     wheelEvent.setScreenPos(event->globalPosition().toPoint());

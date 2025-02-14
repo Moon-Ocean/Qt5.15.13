@@ -695,6 +695,7 @@ public:
     QPointF pos;
     QPointF scenePos;
     QPoint screenPos;
+    Qt::ScrollPhase phase = Qt::ScrollPhase(0);
     Qt::MouseButtons buttons;
     Qt::KeyboardModifiers modifiers;
     int delta = 0;
@@ -717,6 +718,24 @@ QGraphicsSceneWheelEvent::QGraphicsSceneWheelEvent(Type type)
 */
 QGraphicsSceneWheelEvent::~QGraphicsSceneWheelEvent()
 {
+}
+
+/*!
+    Returns the scroll phase of the wheel event.
+*/
+Qt::ScrollPhase QGraphicsSceneWheelEvent::phase() const
+{
+    Q_D(const QGraphicsSceneWheelEvent);
+    return d->phase;
+}
+
+/*!
+    \internal
+*/
+void QGraphicsSceneWheelEvent::setPhase(Qt::ScrollPhase phase)
+{
+    Q_D(QGraphicsSceneWheelEvent);
+    d->phase = phase;
 }
 
 /*!
