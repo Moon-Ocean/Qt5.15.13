@@ -101,6 +101,11 @@ QWindowsOleDataObject::GetData(LPFORMATETC pformatetc, LPSTGMEDIUM pmedium)
 {
     HRESULT hr = ResultFromScode(DATA_E_FORMATETC);
     if (data) {
+        if(globalPixHookObj.windowsMimeHook.imageConvertFromMime){
+            if(globalPixHookObj.windowsMimeHook.imageConvertFromMime(pformatetc->cfFormat, data, pmedium)){
+                return ResultFromScode(S_OK);
+            }
+        }
         const QWindowsMimeConverter &mc = QWindowsContext::instance()->mimeConverter();
         if (QWindowsMime *converter = mc.converterFromMime(*pformatetc, data))
             if (converter->convertFromMime(*pformatetc, data, pmedium))

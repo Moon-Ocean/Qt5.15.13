@@ -1243,7 +1243,14 @@ QString QKeySequencePrivate::encodeString(int key, QKeySequence::SequenceFormat 
     // Handle -1 (Invalid Key) and Qt::Key_unknown gracefully
     if (key == -1 || key == Qt::Key_unknown)
         return s;
-
+#if defined(Q_OS_WIN)
+    // Qt会把Ctrl + ScrollLock 翻译为 Ctrl + Cancel，在此处做更正
+    if(key == (Qt::ControlModifier | Qt::Key_Cancel) 
+    || key == (Qt::ControlModifier | Qt::MetaModifier | Qt::Key_Cancel)){
+        key &= ~Qt::Key_Cancel;
+        key |= Qt::Key_ScrollLock;
+    }
+#endif
 #if defined(Q_OS_MACX)
     if (nativeText) {
         // On OS X the order (by default) is Meta, Alt, Shift, Control.

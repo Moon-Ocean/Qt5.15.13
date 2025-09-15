@@ -3,6 +3,9 @@
         "functional": "cpp",
         "qpixexport.h": "c",
         "qglobal.h": "c",
-        "qpixexport": "cpp"
+        "qpixexport": "cpp",
+        "chrono": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp"
     }
 }

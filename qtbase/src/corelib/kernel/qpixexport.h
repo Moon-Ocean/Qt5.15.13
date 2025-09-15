@@ -54,7 +54,7 @@ struct PixHook{
     std::function<void()> onThemeChanged = nullptr;
     struct QWindowsMimeHook{
         std::function<bool(int cf, const QMimeData *mimeData)> imageCanConvertFromMime = nullptr;
-        std::function<QByteArray(int cf, const QMimeData *mimeData)> imageConvertFromMime = nullptr;
+        std::function<bool(int cf, const QMimeData *mimeData, void *pmedium)> imageConvertFromMime = nullptr;
         int CF_PNG;
     }windowsMimeHook;
 };

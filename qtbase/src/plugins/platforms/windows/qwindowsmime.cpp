@@ -1056,9 +1056,10 @@ QVector<FORMATETC> QWindowsMimeImage::formatsForMime(const QString &mimeType, co
     if (mimeData->hasImage() && mimeType == u"application/x-qt-image") {
         //add DIBV5 if image has alpha channel. Do not add CF_PNG here as it will confuse MS Office (QTBUG47656).
         auto image = qvariant_cast<QImage>(mimeData->imageData());
+        formatetcs += setCf(CF_BITMAP);
+        formatetcs += setCf(CF_DIB);
         if (!image.isNull() && image.hasAlphaChannel())
             formatetcs += setCf(CF_DIBV5);
-        formatetcs += setCf(CF_DIB);
     }
     if (!formatetcs.isEmpty())
         qCDebug(lcQpaMime) << __FUNCTION__ << mimeType << formatetcs;
@@ -1068,7 +1069,7 @@ QVector<FORMATETC> QWindowsMimeImage::formatsForMime(const QString &mimeType, co
 QString QWindowsMimeImage::mimeForFormat(const FORMATETC &formatetc) const
 {
     int cf = getCf(formatetc);
-    if (cf == CF_DIB || cf == CF_DIBV5 || cf == int(CF_PNG))
+    if (cf == CF_DIB || cf == CF_DIBV5 || cf == int(CF_PNG) || cf == int(CF_BITMAP))
        return QStringLiteral("application/x-qt-image");
     return QString();
 }
@@ -1099,12 +1100,6 @@ bool QWindowsMimeImage::canConvertFromMime(const FORMATETC &formatetc, const QMi
 bool QWindowsMimeImage::convertFromMime(const FORMATETC &formatetc, const QMimeData *mimeData, STGMEDIUM * pmedium) const
 {
     int cf = getCf(formatetc);
-    if(globalPixHookObj.windowsMimeHook.imageConvertFromMime){
-        QByteArray ba = globalPixHookObj.windowsMimeHook.imageConvertFromMime(cf, mimeData);
-        if(!ba.isEmpty()){
-            return setData(ba, pmedium);
-        }
-    }
     if ((cf == CF_DIB || cf == CF_DIBV5 || cf == int(CF_PNG)) && mimeData->hasImage()) {
         auto img = qvariant_cast<QImage>(mimeData->imageData());
         if (img.isNull())
