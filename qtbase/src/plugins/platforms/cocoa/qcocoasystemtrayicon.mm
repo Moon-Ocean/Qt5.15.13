@@ -213,12 +213,32 @@ void QCocoaSystemTrayIcon::updateIcon(const QIcon &icon)
 
 void QCocoaSystemTrayIcon::updateMenu(QPlatformMenu *menu)
 {
-    // We don't set the menu property of the NSStatusItem here,
-    // as that would prevent us from receiving the action for the
-    // click, and we wouldn't be able to emit the activated signal.
-    // Instead we show the menu manually when the status item is
-    // clicked.
+    auto *nsMenu = menu ? static_cast<QCocoaMenu *>(menu)->nsMenu() : nil;
+    if (m_statusItem.menu == nsMenu)
+        return;
+
+    if (m_statusItem.menu) {
+        [NSNotificationCenter.defaultCenter removeObserver:m_delegate
+            name:NSMenuDidBeginTrackingNotification
+            object:m_statusItem.menu
+        ];
+    }
+
+    m_statusItem.menu = nsMenu;
     m_menu = static_cast<QCocoaMenu *>(menu);
+
+    if (m_statusItem.menu) {
+        // When a menu is assigned, NSStatusBarButtonCell will intercept the mouse
+        // down to pop up the menu, and we never see the NSStatusBarButton action.
+        // To ensure we emit the 'activated' signal in both cases we detect when
+        // menu starts tracking, which happens before the menu delegate is sent
+        // the menuWillOpen callback we use to emit aboutToShow for the menu.
+        [NSNotificationCenter.defaultCenter addObserver:m_delegate
+            selector:@selector(statusItemMenuBeganTracking:)
+            name:NSMenuDidBeginTrackingNotification
+            object:m_statusItem.menu
+        ];
+    }
 }
 
 void QCocoaSystemTrayIcon::updateToolTip(const QString &toolTip)
@@ -280,9 +300,6 @@ void QCocoaSystemTrayIcon::statusItemClicked()
     }
 
     emit activated(activationReason);
-
-    if (NSMenu *menu = m_menu ? m_menu->nsMenu() : nil)
-        [m_statusItem popUpStatusItemMenu:menu];
 }
 
 QT_END_NAMESPACE
@@ -304,6 +321,11 @@ QT_END_NAMESPACE
 }
 
 - (void)statusItemClicked
+{
+    self.platformSystemTray->statusItemClicked();
+}
+
+- (void)statusItemMenuBeganTracking:(NSNotification*)notification
 {
     self.platformSystemTray->statusItemClicked();
 }
