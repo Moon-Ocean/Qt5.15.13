@@ -281,13 +281,33 @@ void QCocoaSystemTrayIcon::showMessage(const QString &title, const QString &mess
     }
 }
 
+static bool isMouseEventForSystemTray(NSEvent *event)
+{
+    if (!event)
+        return false;
+
+    switch (event.type) {
+    case NSEventTypeLeftMouseDown:
+    case NSEventTypeLeftMouseUp:
+    case NSEventTypeRightMouseDown:
+    case NSEventTypeRightMouseUp:
+    case NSEventTypeOtherMouseDown:
+    case NSEventTypeOtherMouseUp:
+        return true;
+    default:
+        return false;
+    }
+}
+
 void QCocoaSystemTrayIcon::statusItemClicked()
 {
     auto *mouseEvent = NSApp.currentEvent;
 
     auto activationReason = QPlatformSystemTrayIcon::Unknown;
 
-    if (mouseEvent.clickCount == 2) {
+    if (!isMouseEventForSystemTray(mouseEvent)) {
+        activationReason = QPlatformSystemTrayIcon::Trigger;
+    } else if (mouseEvent.clickCount == 2) {
         activationReason = QPlatformSystemTrayIcon::DoubleClick;
     } else {
         auto mouseButton = cocoaButton2QtButton(mouseEvent);
