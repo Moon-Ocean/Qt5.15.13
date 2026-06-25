@@ -1,0 +1,3 @@
+mkdir buildUniversal && cd buildUniversal
+../configure -debug-and-release -force-debug-info -separate-debug-info -prefix ~/code/lib/Qt/universal -nomake examples -nomake tests QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" QMAKE_MACOSX_DEPLOYMENT_TARGET=10.14 -opensource -confirm-license -skip qt3d -skip qtwebengine -skip qtlocation -openssl-runtime -no-securetransport -I ~/code/lib/openssl/universal/include -L ~/code/lib/openssl/universal/lib
+make -j8 && make install
