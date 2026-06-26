@@ -128,32 +128,135 @@ def dsym_binary_name(dsym_path):
     return Path(dsym_path).stem
 
 
-def find_macos_binary(build_dir, binary_name):
+def strip_debug_suffix(name):
+    suffix = "_debug"
+    if name.endswith(suffix):
+        return name[:-len(suffix)]
+    return name
+
+
+def unique_names(names):
+    result = []
+    seen = set()
+    for name in names:
+        if name and name not in seen:
+            seen.add(name)
+            result.append(name)
+    return result
+
+
+def macos_binary_names(binary_name, bundle_stem=None):
+    names = [binary_name, strip_debug_suffix(binary_name)]
+    if bundle_stem:
+        names.extend([bundle_stem, strip_debug_suffix(bundle_stem), f"{bundle_stem}_debug"])
+    return unique_names(names)
+
+
+def add_macho_candidate(candidates, seen, path):
+    path = Path(path)
+    if not path.is_file() or not is_probable_macho(path):
+        return
+    try:
+        key = str(path.resolve())
+    except OSError:
+        key = str(path)
+    if key in seen:
+        return
+    seen.add(key)
+    candidates.append(path)
+
+
+def add_bundle_binary_candidates(candidates, seen, bundle_path, binary_name):
+    bundle_path = Path(bundle_path)
+    names = macos_binary_names(binary_name, bundle_path.stem)
+
+    if bundle_path.suffix == ".app":
+        macos_dir = bundle_path / "Contents" / "MacOS"
+        for name in names:
+            add_macho_candidate(candidates, seen, macos_dir / name)
+        return
+
+    if bundle_path.suffix == ".framework":
+        for name in names:
+            add_macho_candidate(candidates, seen, bundle_path / name)
+
+        versions_dir = bundle_path / "Versions"
+        version_dirs = [versions_dir / "Current", versions_dir / "5", versions_dir / "A"]
+        if versions_dir.is_dir():
+            version_dirs.extend(sorted(path for path in versions_dir.iterdir() if path.is_dir()))
+
+        for version_dir in version_dirs:
+            for name in names:
+                add_macho_candidate(candidates, seen, version_dir / name)
+        return
+
+    if bundle_path.is_dir():
+        for name in names:
+            add_macho_candidate(candidates, seen, bundle_path / name)
+
+
+def collect_macos_binaries(build_dir):
+    binaries = {}
+    for path in walk_files(build_dir):
+        if path.is_file() and is_probable_macho(path):
+            binaries.setdefault(path.name, []).append(path)
+    return binaries
+
+
+def matched_dsym_items(binary_uuid_map, dsym_uuids):
+    return [item for item in dsym_uuids if binary_uuid_map.get(item["arch"]) == item["uuid"]]
+
+
+def find_macos_binary_matches(build_dir, dsym_path, binary_name, dsym_uuids, binary_index):
     build_dir = Path(build_dir)
+    dsym_path = Path(dsym_path)
+    candidates = []
+    seen = set()
 
-    direct = build_dir / binary_name
-    if direct.is_file():
-        return direct
+    # Xcode and dsymutil normally place the binary next to Foo.dSYM as Foo.
+    adjacent_binary = dsym_path.with_suffix("")
+    add_macho_candidate(candidates, seen, adjacent_binary)
+    add_bundle_binary_candidates(candidates, seen, adjacent_binary, binary_name)
 
-    app_binary = build_dir / f"{binary_name}.app" / "Contents" / "MacOS" / binary_name
-    if app_binary.is_file():
-        return app_binary
+    for name in macos_binary_names(binary_name):
+        add_macho_candidate(candidates, seen, build_dir / name)
+        add_bundle_binary_candidates(candidates, seen, build_dir / f"{name}.app", binary_name)
+        add_bundle_binary_candidates(candidates, seen, build_dir / f"{name}.framework", binary_name)
 
-    framework_candidates = [
-        build_dir / f"{binary_name}.framework" / "Versions" / "5" / binary_name,
-        build_dir / f"{binary_name}.framework" / "Versions" / "5" / f"{binary_name}_debug",
-        build_dir / f"{binary_name}.framework" / binary_name,
-        build_dir / f"{binary_name}.framework" / f"{binary_name}_debug",
-    ]
-    for framework_binary in framework_candidates:
-        if framework_binary.is_file() and is_probable_macho(framework_binary):
-            return framework_binary
+    for name in macos_binary_names(binary_name):
+        for indexed_path in binary_index.get(name, []):
+            add_macho_candidate(candidates, seen, indexed_path)
 
-    for candidate in walk_files(build_dir):
-        if candidate.name == binary_name and candidate.is_file() and is_probable_macho(candidate):
-            return candidate
+    fallback_binary_path = None
+    fallback_binary_uuid_map = {}
+    matches_by_arch = {}
+    for index, candidate in enumerate(candidates):
+        try:
+            uuid_map = {item["arch"]: item["uuid"] for item in parse_dwarfdump_uuids(candidate)}
+        except Exception as exc:
+            log(f"Warning: failed to read binary UUIDs: {candidate}: {exc}")
+            continue
 
-    return None
+        if fallback_binary_path is None:
+            fallback_binary_path = candidate
+            fallback_binary_uuid_map = uuid_map
+
+        matched_items = matched_dsym_items(uuid_map, dsym_uuids)
+        score = (len(matched_items), -index)
+        for item in matched_items:
+            arch = item["arch"]
+            current = matches_by_arch.get(arch)
+            if current is None or score > current["score"]:
+                matches_by_arch[arch] = {
+                    "path": candidate,
+                    "uuidMap": uuid_map,
+                    "score": score,
+                }
+
+    for match in matches_by_arch.values():
+        match.pop("score", None)
+
+    return matches_by_arch, fallback_binary_path, fallback_binary_uuid_map
 
 
 def add_directory_upload_tasks(base_url, local_dir, remote_dir, tasks):
@@ -170,6 +273,7 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
     build_dir = Path(build_dir)
     base_url = ensure_url_base(server_url)
     dsym_paths = sorted(build_dir.rglob("*.dSYM"))
+    binary_index = collect_macos_binaries(build_dir)
     tasks = []
     records = []
 
@@ -178,15 +282,15 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
     for dsym_path in dsym_paths:
         binary_name = dsym_binary_name(dsym_path)
         dsym_uuids = parse_dwarfdump_uuids(dsym_path)
-        binary_path = find_macos_binary(build_dir, binary_name)
-        binary_uuid_map = {}
+        binary_matches, fallback_binary_path, fallback_binary_uuid_map = find_macos_binary_matches(
+            build_dir,
+            dsym_path,
+            binary_name,
+            dsym_uuids,
+            binary_index,
+        )
 
-        if binary_path:
-            try:
-                binary_uuid_map = {item["arch"]: item["uuid"] for item in parse_dwarfdump_uuids(binary_path)}
-            except Exception as exc:
-                log(f"Warning: failed to read binary UUIDs: {binary_path}: {exc}")
-        else:
+        if not fallback_binary_path and not binary_matches:
             log(f"Warning: binary not found for {dsym_path}")
 
         for item in dsym_uuids:
@@ -194,10 +298,16 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
             uuid = item["uuid"]
             dsym_remote_dir = f"macos/{binary_name}/{uuid}/{dsym_path.name}"
             binary_remote_path = None
+            binary_path = fallback_binary_path
+            binary_uuid_map = fallback_binary_uuid_map
+            binary_match = binary_matches.get(arch)
+            if binary_match:
+                binary_path = binary_match["path"]
+                binary_uuid_map = binary_match["uuidMap"]
 
             add_directory_upload_tasks(base_url, dsym_path, dsym_remote_dir, tasks)
 
-            if binary_path and binary_uuid_map.get(arch) == uuid:
+            if binary_match:
                 binary_remote_path = f"macos/{binary_name}/{uuid}/{binary_name}"
                 tasks.append((binary_path, urljoin(base_url, quote_path(binary_remote_path))))
             elif binary_path:
