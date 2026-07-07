@@ -4,7 +4,8 @@
 Upload Qt debug symbols and matching binaries for later minidump analysis.
 
 macOS:
-  Uploads .dSYM bundles and matching Mach-O binaries, indexed by DWARF UUID.
+  Uploads dSYM DWARF files and matching Mach-O binaries using LLDB File Mapped
+  UUID paths.
 Windows:
   Uploads PDB files and matching PE binaries, indexed by CodeView RSDS GUID+Age.
 
@@ -28,7 +29,8 @@ try:
 except ImportError as exc:
     raise SystemExit("Missing dependency: requests. Install it with: python -m pip install requests") from exc
 
-DEFAULT_SERVER_URL = "http://internalserver.viewdepth.cn:3001/PixPinRelease/QtSymbols"
+DEFAULT_MACOS_SERVER_URL = "http://192.168.166.107:3001/PixPinRelease/MacosDSYM/"
+DEFAULT_WINDOWS_SERVER_URL = "http://internalserver.viewdepth.cn:3001/PixPinRelease/QtSymbols"
 
 MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",
@@ -116,6 +118,22 @@ def parse_dwarfdump_uuids(path):
         if match:
             uuids.append({"uuid": match.group(1).upper(), "arch": match.group(2)})
     return uuids
+
+
+def dsym_dwarf_file(dsym_path, binary_name=None):
+    dwarf_dir = Path(dsym_path) / "Contents" / "Resources" / "DWARF"
+    if not dwarf_dir.exists():
+        return None
+
+    if binary_name:
+        candidate = dwarf_dir / binary_name
+        if candidate.is_file():
+            return candidate
+
+    for entry in dwarf_dir.iterdir():
+        if entry.is_file() and entry.name != ".DS_Store":
+            return entry
+    return None
 
 
 def dsym_binary_name(dsym_path):
@@ -207,6 +225,19 @@ def matched_dsym_items(binary_uuid_map, dsym_uuids):
     return [item for item in dsym_uuids if binary_uuid_map.get(item["arch"]) == item["uuid"]]
 
 
+def lldb_file_mapped_uuid_path(uuid, app_suffix=False):
+    normalized = uuid.replace("-", "").upper()
+    if len(normalized) != 32 or not re.fullmatch(r"[A-F0-9]{32}", normalized):
+        raise ValueError(f"Invalid Mach-O UUID: {uuid}")
+
+    parts = [normalized[index:index + 4] for index in range(0, 20, 4)]
+    parts.append(normalized[20:])
+    path = "/".join(parts)
+    if app_suffix:
+        path += ".app"
+    return path
+
+
 def find_macos_binary_matches(build_dir, dsym_path, binary_name, dsym_uuids, binary_index):
     build_dir = Path(build_dir)
     dsym_path = Path(dsym_path)
@@ -281,6 +312,11 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
 
     for dsym_path in dsym_paths:
         binary_name = dsym_binary_name(dsym_path)
+        dsym_file = dsym_dwarf_file(dsym_path, binary_name)
+        if not dsym_file:
+            log(f"Warning: dSYM DWARF file not found for {dsym_path}")
+            continue
+
         dsym_uuids = parse_dwarfdump_uuids(dsym_path)
         binary_matches, fallback_binary_path, fallback_binary_uuid_map = find_macos_binary_matches(
             build_dir,
@@ -296,7 +332,7 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
         for item in dsym_uuids:
             arch = item["arch"]
             uuid = item["uuid"]
-            dsym_remote_dir = f"macos/{binary_name}/{uuid}/{dsym_path.name}"
+            dsym_remote_path = lldb_file_mapped_uuid_path(uuid)
             binary_remote_path = None
             binary_path = fallback_binary_path
             binary_uuid_map = fallback_binary_uuid_map
@@ -305,10 +341,10 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
                 binary_path = binary_match["path"]
                 binary_uuid_map = binary_match["uuidMap"]
 
-            add_directory_upload_tasks(base_url, dsym_path, dsym_remote_dir, tasks)
+            tasks.append((dsym_file, urljoin(base_url, quote_path(dsym_remote_path))))
 
             if binary_match:
-                binary_remote_path = f"macos/{binary_name}/{uuid}/{binary_name}"
+                binary_remote_path = lldb_file_mapped_uuid_path(uuid, app_suffix=True)
                 tasks.append((binary_path, urljoin(base_url, quote_path(binary_remote_path))))
             elif binary_path:
                 log(f"Warning: UUID mismatch for {binary_name} [{arch}], dSYM={uuid}, binary={binary_uuid_map.get(arch)}")
@@ -318,9 +354,10 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
                 "binaryName": binary_name,
                 "arch": arch,
                 "uuid": uuid,
-                "dsymRemotePath": dsym_remote_dir,
+                "dsymRemotePath": dsym_remote_path,
                 "binaryRemotePath": binary_remote_path,
                 "localDsymPath": str(dsym_path),
+                "localDsymFilePath": str(dsym_file),
                 "localBinaryPath": str(binary_path) if binary_path else None,
             })
 
@@ -537,11 +574,24 @@ def detect_platform(name):
     raise SystemExit(f"Unsupported platform: {system_name}. Use --platform macos or --platform windows.")
 
 
+def default_server_url(platform_name):
+    if platform_name == "macos":
+        return DEFAULT_MACOS_SERVER_URL
+    return DEFAULT_WINDOWS_SERVER_URL
+
+
 def main():
     parser = argparse.ArgumentParser(description="Upload Qt debug symbols and binaries for minidump analysis")
     parser.add_argument("--platform", choices=["auto", "macos", "windows"], default="auto", help="Target platform. Default: auto")
     parser.add_argument("--build-dir", default="buildUniversal", help="Qt build directory. Default: buildUniversal")
-    parser.add_argument("--server-url", default=DEFAULT_SERVER_URL, help=f"dufs server URL. Default: {DEFAULT_SERVER_URL}")
+    parser.add_argument(
+        "--server-url",
+        default=None,
+        help=(
+            "dufs server URL. Defaults are platform-specific: "
+            f"macOS -> {DEFAULT_MACOS_SERVER_URL}, Windows -> {DEFAULT_WINDOWS_SERVER_URL}"
+        ),
+    )
     parser.add_argument("--version", default=None, help="Qt package/version label stored in manifest")
     parser.add_argument("--dry-run", action="store_true", help="Print upload tasks without uploading")
     args = parser.parse_args()
@@ -552,10 +602,11 @@ def main():
         build_dir = script_dir / build_dir
 
     platform_name = detect_platform(args.platform)
+    server_url = args.server_url or default_server_url(platform_name)
     if platform_name == "macos":
-        ok = upload_macos_symbols(build_dir, args.server_url, args.version, args.dry_run)
+        ok = upload_macos_symbols(build_dir, server_url, args.version, args.dry_run)
     else:
-        ok = upload_windows_symbols(build_dir, args.server_url, args.version, args.dry_run)
+        ok = upload_windows_symbols(build_dir, server_url, args.version, args.dry_run)
 
     raise SystemExit(0 if ok else 1)
 
