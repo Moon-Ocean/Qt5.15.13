@@ -163,6 +163,18 @@ def dsym_dwarf_file(dsym_path, binary_name=None):
     return None
 
 
+def dsym_dwarf_files(dsym_path):
+    dwarf_dir = Path(dsym_path) / "Contents" / "Resources" / "DWARF"
+    if not dwarf_dir.exists():
+        return []
+
+    return sorted(
+        entry
+        for entry in dwarf_dir.iterdir()
+        if entry.is_file() and entry.name != ".DS_Store"
+    )
+
+
 def dsym_binary_name(dsym_path):
     dwarf_dir = Path(dsym_path) / "Contents" / "Resources" / "DWARF"
     if not dwarf_dir.exists():
@@ -338,55 +350,56 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
     log(f"Found {len(dsym_paths)} dSYM bundles under {build_dir}")
 
     for dsym_path in dsym_paths:
-        binary_name = dsym_binary_name(dsym_path)
-        dsym_file = dsym_dwarf_file(dsym_path, binary_name)
-        if not dsym_file:
+        dwarf_files = dsym_dwarf_files(dsym_path)
+        if not dwarf_files:
             log(f"Warning: dSYM DWARF file not found for {dsym_path}")
             continue
 
-        dsym_uuids = parse_dwarfdump_uuids(dsym_path)
-        binary_matches, fallback_binary_path, fallback_binary_uuid_map = find_macos_binary_matches(
-            build_dir,
-            dsym_path,
-            binary_name,
-            dsym_uuids,
-            binary_index,
-        )
+        for dsym_file in dwarf_files:
+            binary_name = dsym_file.name
+            dsym_uuids = parse_dwarfdump_uuids(dsym_file)
+            binary_matches, fallback_binary_path, fallback_binary_uuid_map = find_macos_binary_matches(
+                build_dir,
+                dsym_path,
+                binary_name,
+                dsym_uuids,
+                binary_index,
+            )
 
-        if not fallback_binary_path and not binary_matches:
-            log(f"Warning: binary not found for {dsym_path}")
+            if not fallback_binary_path and not binary_matches:
+                log(f"Warning: binary not found for {dsym_file}")
 
-        for item in dsym_uuids:
-            arch = item["arch"]
-            uuid = item["uuid"]
-            dsym_remote_path = lldb_file_mapped_uuid_path(uuid)
-            binary_remote_path = None
-            binary_path = fallback_binary_path
-            binary_uuid_map = fallback_binary_uuid_map
-            binary_match = binary_matches.get(arch)
-            if binary_match:
-                binary_path = binary_match["path"]
-                binary_uuid_map = binary_match["uuidMap"]
+            for item in dsym_uuids:
+                arch = item["arch"]
+                uuid = item["uuid"]
+                dsym_remote_path = lldb_file_mapped_uuid_path(uuid)
+                binary_remote_path = None
+                binary_path = fallback_binary_path
+                binary_uuid_map = fallback_binary_uuid_map
+                binary_match = binary_matches.get(arch)
+                if binary_match:
+                    binary_path = binary_match["path"]
+                    binary_uuid_map = binary_match["uuidMap"]
 
-            tasks.append((dsym_file, urljoin(base_url, quote_path(dsym_remote_path))))
+                tasks.append((dsym_file, urljoin(base_url, quote_path(dsym_remote_path))))
 
-            if binary_match:
-                binary_remote_path = lldb_file_mapped_uuid_path(uuid, app_suffix=True)
-                tasks.append((binary_path, urljoin(base_url, quote_path(binary_remote_path))))
-            elif binary_path:
-                log(f"Warning: UUID mismatch for {binary_name} [{arch}], dSYM={uuid}, binary={binary_uuid_map.get(arch)}")
+                if binary_match:
+                    binary_remote_path = lldb_file_mapped_uuid_path(uuid, app_suffix=True)
+                    tasks.append((binary_path, urljoin(base_url, quote_path(binary_remote_path))))
+                elif binary_path:
+                    log(f"Warning: UUID mismatch for {binary_name} [{arch}], dSYM={uuid}, binary={binary_uuid_map.get(arch)}")
 
-            records.append({
-                "platform": "macos",
-                "binaryName": binary_name,
-                "arch": arch,
-                "uuid": uuid,
-                "dsymRemotePath": dsym_remote_path,
-                "binaryRemotePath": binary_remote_path,
-                "localDsymPath": str(dsym_path),
-                "localDsymFilePath": str(dsym_file),
-                "localBinaryPath": str(binary_path) if binary_path else None,
-            })
+                records.append({
+                    "platform": "macos",
+                    "binaryName": binary_name,
+                    "arch": arch,
+                    "uuid": uuid,
+                    "dsymRemotePath": dsym_remote_path,
+                    "binaryRemotePath": binary_remote_path,
+                    "localDsymPath": str(dsym_path),
+                    "localDsymFilePath": str(dsym_file),
+                    "localBinaryPath": str(binary_path) if binary_path else None,
+                })
 
     return upload_tasks_and_manifest(tasks, records, build_dir, base_url, "macos", version, dry_run)
 
