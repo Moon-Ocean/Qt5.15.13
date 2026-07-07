@@ -7,9 +7,11 @@ macOS:
   Uploads dSYM DWARF files and matching Mach-O binaries using LLDB File Mapped
   UUID paths.
 Windows:
-  Uploads PDB files and matching PE binaries, indexed by CodeView RSDS GUID+Age.
+  Adds PDB files and matching PE binaries to a WinDbg symbol store with
+  symstore.exe.
 
-The default server is a dufs endpoint. Files are uploaded with HTTP PUT.
+The default macOS server is a dufs endpoint. Files are uploaded with HTTP PUT.
+The default Windows target is a UNC WinDbg symbol store path.
 """
 
 import argparse
@@ -17,6 +19,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -24,13 +27,20 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote, urljoin
 
-try:
-    import requests
-except ImportError as exc:
-    raise SystemExit("Missing dependency: requests. Install it with: python -m pip install requests") from exc
-
 DEFAULT_MACOS_SERVER_URL = "http://192.168.166.107:3001/PixPinRelease/MacosDSYM/"
-DEFAULT_WINDOWS_SERVER_URL = "http://internalserver.viewdepth.cn:3001/PixPinRelease/QtSymbols"
+DEFAULT_WINDOWS_SYMBOL_STORE_PATH = r"\\internalserver.viewdepth.cn\ShareFile\PixPinRelease\WinDbgSymbol"
+WINDOWS_SYMSTORE_PRODUCT_NAME = "Qt"
+
+WINDOWS_DEBUGGING_TOOL_DIRS = [
+    r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64",
+    r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\srcsrv",
+    r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x86",
+    r"C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\srcsrv",
+    r"C:\Program Files\Windows Kits\10\Debuggers\x64",
+    r"C:\Program Files\Windows Kits\10\Debuggers\x64\srcsrv",
+    r"C:\Program Files\Windows Kits\10\Debuggers\x86",
+    r"C:\Program Files\Windows Kits\10\Debuggers\x86\srcsrv",
+]
 
 MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",
@@ -67,6 +77,11 @@ def put_file(local_path, remote_url, dry_run=False):
         log(f"[dry-run] {local_path} -> {remote_url}")
         return True
 
+    try:
+        import requests
+    except ImportError as exc:
+        raise SystemExit("Missing dependency: requests. Install it with: python -m pip install requests") from exc
+
     with local_path.open("rb") as file_obj:
         response = requests.put(remote_url, data=file_obj, timeout=300)
 
@@ -82,6 +97,18 @@ def run_text_command(args):
     result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(args)}\n{result.stderr}")
+    return result.stdout
+
+
+def run_logged_command(args):
+    args = [str(arg) for arg in args]
+    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+    if result.stdout:
+        log(result.stdout.rstrip())
+    if result.stderr:
+        log(result.stderr.rstrip())
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed: {subprocess.list2cmdline(args)}")
     return result.stdout
 
 
@@ -364,6 +391,70 @@ def upload_macos_symbols(build_dir, server_url, version, dry_run=False):
     return upload_tasks_and_manifest(tasks, records, build_dir, base_url, "macos", version, dry_run)
 
 
+def find_windows_debugging_tool(tool_name):
+    env_name = f"{Path(tool_name).stem.upper()}_EXE"
+    env_path = os.environ.get(env_name)
+    if env_path and Path(env_path).is_file():
+        log(f"Found {tool_name} from {env_name}: {env_path}")
+        return env_path
+
+    tool_path = shutil.which(tool_name)
+    if tool_path:
+        log(f"Found {tool_name} in PATH: {tool_path}")
+        return tool_path
+
+    for tool_dir in WINDOWS_DEBUGGING_TOOL_DIRS:
+        candidate = Path(tool_dir) / tool_name
+        if candidate.is_file():
+            log(f"Found {tool_name}: {candidate}")
+            return str(candidate)
+
+    raise RuntimeError(
+        f"Could not find {tool_name}. Install Windows Debugging Tools or set {env_name}."
+    )
+
+
+def make_symstore_command(symstore_exe, build_dir, symbol_store_path, version):
+    command = [
+        symstore_exe,
+        "add",
+        "/r",
+        "/f", str(build_dir),
+        "/s", str(symbol_store_path),
+        "/t", WINDOWS_SYMSTORE_PRODUCT_NAME,
+    ]
+    if version:
+        command.extend(["/v", str(version)])
+        comment = f"{WINDOWS_SYMSTORE_PRODUCT_NAME} {version} symbols"
+    else:
+        comment = f"{WINDOWS_SYMSTORE_PRODUCT_NAME} symbols from {Path(build_dir).name}"
+    command.extend(["/c", comment])
+    return command
+
+
+def add_windows_symbols_to_store(build_dir, symbol_store_path, version, dry_run=False):
+    build_dir = Path(build_dir)
+    symbol_store_path = Path(symbol_store_path)
+
+    if not build_dir.exists():
+        raise RuntimeError(f"Build directory does not exist: {build_dir}")
+
+    log(f"Windows symbol source: {build_dir}")
+    log(f"Windows symbol store: {symbol_store_path}")
+
+    symstore_exe = "symstore.exe" if dry_run else find_windows_debugging_tool("symstore.exe")
+    command = make_symstore_command(symstore_exe, build_dir, symbol_store_path, version)
+
+    if dry_run:
+        log(f"[dry-run] {subprocess.list2cmdline([str(arg) for arg in command])}")
+        return True
+
+    symbol_store_path.mkdir(parents=True, exist_ok=True)
+    run_logged_command(command)
+    log("Windows symbol store generation completed")
+    return True
+
+
 def read_c_string(data, offset):
     end = data.find(b"\x00", offset)
     if end < 0:
@@ -471,47 +562,8 @@ def choose_pdb(pdbs, pdb_name):
     return sorted(matches, key=lambda p: len(str(p)))[0]
 
 
-def upload_windows_symbols(build_dir, server_url, version, dry_run=False):
-    build_dir = Path(build_dir)
-    base_url = ensure_url_base(server_url)
-    pdbs = collect_pdbs(build_dir)
-    tasks = []
-    records = []
-
-    pe_files = [path for path in walk_files(build_dir) if path.suffix.lower() in PE_EXTENSIONS and is_probable_pe(path)]
-    log(f"Found {len(pe_files)} PE binaries under {build_dir}")
-
-    for binary_path in sorted(pe_files):
-        rsds = parse_pe_rsds(binary_path)
-        if not rsds:
-            continue
-
-        pdb_path = choose_pdb(pdbs, rsds["pdbName"])
-        identifier = rsds["identifier"]
-        binary_remote_path = f"windows/{binary_path.name}/{identifier}/{binary_path.name}"
-        pdb_remote_path = None
-
-        tasks.append((binary_path, urljoin(base_url, quote_path(binary_remote_path))))
-        if pdb_path:
-            pdb_remote_path = f"windows/{rsds['pdbName']}/{identifier}/{rsds['pdbName']}"
-            tasks.append((pdb_path, urljoin(base_url, quote_path(pdb_remote_path))))
-        else:
-            log(f"Warning: PDB not found for {binary_path}: {rsds['pdbName']}")
-
-        records.append({
-            "platform": "windows",
-            "binaryName": binary_path.name,
-            "pdbName": rsds["pdbName"],
-            "identifier": identifier,
-            "guid": rsds["guid"],
-            "age": rsds["age"],
-            "pdbRemotePath": pdb_remote_path,
-            "binaryRemotePath": binary_remote_path,
-            "localPdbPath": str(pdb_path) if pdb_path else None,
-            "localBinaryPath": str(binary_path),
-        })
-
-    return upload_tasks_and_manifest(tasks, records, build_dir, base_url, "windows", version, dry_run)
+def upload_windows_symbols(build_dir, symbol_store_path, version, dry_run=False):
+    return add_windows_symbols_to_store(build_dir, symbol_store_path, version, dry_run)
 
 
 def upload_tasks_and_manifest(tasks, records, build_dir, base_url, platform_name, version, dry_run=False):
@@ -577,31 +629,38 @@ def detect_platform(name):
 def default_server_url(platform_name):
     if platform_name == "macos":
         return DEFAULT_MACOS_SERVER_URL
-    return DEFAULT_WINDOWS_SERVER_URL
+    return DEFAULT_WINDOWS_SYMBOL_STORE_PATH
+
+
+def default_build_dir(platform_name):
+    if platform_name == "windows":
+        return "buildDir"
+    return "buildUniversal"
 
 
 def main():
     parser = argparse.ArgumentParser(description="Upload Qt debug symbols and binaries for minidump analysis")
     parser.add_argument("--platform", choices=["auto", "macos", "windows"], default="auto", help="Target platform. Default: auto")
-    parser.add_argument("--build-dir", default="buildUniversal", help="Qt build directory. Default: buildUniversal")
+    parser.add_argument("--build-dir", default=None, help="Qt build directory. Default: buildUniversal on macOS, buildDir on Windows")
     parser.add_argument(
         "--server-url",
         default=None,
         help=(
-            "dufs server URL. Defaults are platform-specific: "
-            f"macOS -> {DEFAULT_MACOS_SERVER_URL}, Windows -> {DEFAULT_WINDOWS_SERVER_URL}"
+            "Upload target. macOS uses a dufs server URL; Windows uses a WinDbg symbol store path. "
+            f"Defaults: macOS -> {DEFAULT_MACOS_SERVER_URL}, Windows -> {DEFAULT_WINDOWS_SYMBOL_STORE_PATH}"
         ),
     )
     parser.add_argument("--version", default=None, help="Qt package/version label stored in manifest")
     parser.add_argument("--dry-run", action="store_true", help="Print upload tasks without uploading")
     args = parser.parse_args()
 
+    platform_name = detect_platform(args.platform)
+
     script_dir = Path(__file__).resolve().parent
-    build_dir = Path(args.build_dir)
+    build_dir = Path(args.build_dir or default_build_dir(platform_name))
     if not build_dir.is_absolute():
         build_dir = script_dir / build_dir
 
-    platform_name = detect_platform(args.platform)
     server_url = args.server_url or default_server_url(platform_name)
     if platform_name == "macos":
         ok = upload_macos_symbols(build_dir, server_url, args.version, args.dry_run)
